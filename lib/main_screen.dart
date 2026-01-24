@@ -3,6 +3,7 @@ import 'package:spendly/achievements_page.dart';
 import 'package:spendly/budget_page.dart';
 import 'package:spendly/homepage.dart';
 import 'package:spendly/transactions_page.dart';
+import 'package:spendly/streaks.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,6 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     TransactionsPage(),
     BudgetPage(),
     AchievementsPage(),
+    StreaksPage(),
   ];
 
   static const List<String> _titles = [
@@ -26,6 +28,7 @@ class _MainScreenState extends State<MainScreen> {
     'Transactions',
     'Budget',
     'Achievements',
+    'Streaks',
   ];
 
   @override
@@ -63,6 +66,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.emoji_events),
             label: 'Achievements',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_fire_department),
+            label: 'Streaks',
           ),
         ],
       ),

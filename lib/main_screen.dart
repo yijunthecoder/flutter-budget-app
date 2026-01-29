@@ -41,37 +41,52 @@ class _MainScreenState extends State<MainScreen> {
         title: Text(_titles[_currentIndex]),
       ),
       body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Transactions',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart),
-            label: 'Budget',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events),
-            label: 'Achievements',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.local_fire_department),
-            label: 'Streaks',
-          ),
-        ],
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
+        ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Colors.black,
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          selectedIconTheme: const IconThemeData(size: 24),
+          unselectedIconTheme: const IconThemeData(size: 24),
+          enableFeedback: false,
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long),
+              label: 'Transactions',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.pie_chart),
+              label: 'Budget',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.emoji_events),
+              label: 'Achievements',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.local_fire_department),
+              label: 'Streaks',
+            ),
+          ],
+        ),
       ),
     );
   }

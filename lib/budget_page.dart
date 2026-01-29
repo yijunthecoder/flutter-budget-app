@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+const int kDefaultMonthlyBudget = 1500;
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -9,13 +13,13 @@ class BudgetPage extends StatefulWidget {
 
 class _BudgetPageState extends State<BudgetPage> {
   final List<_CategoryBudget> _categories = [
-    const _CategoryBudget(name: 'Food', spent: 450, limit: 300),
-    const _CategoryBudget(name: 'Transport', spent: 200, limit: 300),
-    const _CategoryBudget(name: 'Shopping', spent: 120, limit: 300),
-    const _CategoryBudget(name: 'Entertainment', spent: 150, limit: 300),
+    const _CategoryBudget(name: 'Food', limit: 300),
+    const _CategoryBudget(name: 'Transport', limit: 300),
+    const _CategoryBudget(name: 'Shopping', limit: 300),
+    const _CategoryBudget(name: 'Entertainment', limit: 300),
   ];
 
-  int _monthlyBudget = 1500;
+  int _monthlyBudget = kDefaultMonthlyBudget;
 
   Future<void> _addCategory() async {
     final result = await _showCategoryDialog();
@@ -23,9 +27,9 @@ class _BudgetPageState extends State<BudgetPage> {
       return;
     }
     setState(() {
-      _categories.add(
-        _CategoryBudget(name: result.name, spent: 0, limit: result.amount),
-      );
+        _categories.add(
+          _CategoryBudget(name: result.name, limit: result.amount),
+        );
     });
   }
 
@@ -38,7 +42,6 @@ class _BudgetPageState extends State<BudgetPage> {
     setState(() {
       _categories[index] = _CategoryBudget(
         name: result.name,
-        spent: existing.spent,
         limit: result.amount,
       );
     });
@@ -94,7 +97,7 @@ class _BudgetPageState extends State<BudgetPage> {
   }) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final amountController = TextEditingController(
-      text: existing?.limit.toString() ?? '',
+      text: existing?.limit.toStringAsFixed(0) ?? '',
     );
 
     return showDialog<_CategoryEditResult>(
@@ -127,7 +130,8 @@ class _BudgetPageState extends State<BudgetPage> {
           ElevatedButton(
             onPressed: () {
               final name = nameController.text.trim();
-              final amount = int.tryParse(amountController.text.trim());
+              final amount =
+                  double.tryParse(amountController.text.trim());
               if (name.isEmpty || amount == null || amount <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Enter a name and amount')),
@@ -148,85 +152,143 @@ class _BudgetPageState extends State<BudgetPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalSpent = _categories.fold<int>(0, (sum, item) => sum + item.spent);
-    final remaining = _monthlyBudget - totalSpent;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Budget',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              TextButton(
-                onPressed: _addCategory,
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Add'),
-              ),
-            ],
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Please sign in to view your budget.',
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _editMonthlyBudget,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF6FA97A),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+      );
+    }
+
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final monthEnd = DateTime(now.year, now.month + 1);
+    final collection = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('transactions');
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: collection
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
+          .where('date', isLessThan: Timestamp.fromDate(monthEnd))
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Failed to load budget'));
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        final spentByCategory = {
+          for (final category in _categories) category.name: 0.0,
+        };
+
+        for (final doc in docs) {
+          final data = doc.data();
+          final category = (data['category'] as String?) ?? 'Other';
+          final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+          if (spentByCategory.containsKey(category)) {
+            spentByCategory[category] =
+                (spentByCategory[category] ?? 0) + amount;
+          }
+        }
+
+        final totalSpent = spentByCategory.values.fold<double>(
+          0,
+          (sum, value) => sum + value,
+        );
+        final remaining = _monthlyBudget - totalSpent;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Monthly Budget',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    'Budget',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '\$$_monthlyBudget',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                  TextButton(
+                    onPressed: _addCategory,
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Remaining\n\$${remaining < 0 ? 0 : remaining}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    child: const Text('Add'),
                   ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ..._categories.asMap().entries.map(
-                (entry) => _CategoryCard(
-                  category: entry.value,
-                  onTap: () => _editCategory(entry.key),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _editMonthlyBudget,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6FA97A),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Monthly Budget',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _formatCurrency(_monthlyBudget.toDouble()),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Remaining\n${_formatCurrency(remaining < 0 ? 0 : remaining)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-        ],
-      ),
+              const SizedBox(height: 16),
+              ..._categories.asMap().entries.map(
+                    (entry) => _CategoryCard(
+                      category: entry.value,
+                      spent: spentByCategory[entry.value.name] ?? 0,
+                      onTap: () => _editCategory(entry.key),
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -234,24 +296,27 @@ class _BudgetPageState extends State<BudgetPage> {
 class _CategoryBudget {
   const _CategoryBudget({
     required this.name,
-    required this.spent,
     required this.limit,
   });
 
   final String name;
-  final int spent;
-  final int limit;
+  final double limit;
 }
 
 class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({required this.category, required this.onTap});
+  const _CategoryCard({
+    required this.category,
+    required this.spent,
+    required this.onTap,
+  });
 
   final _CategoryBudget category;
+  final double spent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final ratio = category.spent / category.limit;
+    final ratio = category.limit <= 0 ? 0.0 : spent / category.limit;
     final overBudget = ratio > 1;
     final displayRatio = ratio.clamp(0.0, 1.0);
     final barColor = overBudget ? const Color(0xFFCB6659) : const Color(0xFF6FA97A);
@@ -284,7 +349,7 @@ class _CategoryCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '\$${category.spent} / \$${category.limit}',
+                  '${_formatCurrency(spent)} / ${_formatCurrency(category.limit)}',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: overBudget ? const Color(0xFFCB6659) : Colors.black,
@@ -305,7 +370,7 @@ class _CategoryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               overBudget
-                  ? 'Over budget by \$${category.spent - category.limit}'
+                  ? 'Over budget by ${_formatCurrency(spent - category.limit)}'
                   : 'On track',
               style: TextStyle(
                 fontSize: 12,
@@ -323,5 +388,9 @@ class _CategoryEditResult {
   const _CategoryEditResult({required this.name, required this.amount});
 
   final String name;
-  final int amount;
+  final double amount;
+}
+
+String _formatCurrency(double value) {
+  return '\$${value.toStringAsFixed(0)}';
 }

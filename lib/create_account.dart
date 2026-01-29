@@ -17,6 +17,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   bool _isLoading = false;
   String? _errorText;
+  bool _didCreateAccount = false;
 
   @override
   void dispose() {
@@ -29,6 +30,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   Future<void> _submit() async {
     setState(() {
       _errorText = null;
+      _didCreateAccount = false;
     });
 
     if (!_formKey.currentState!.validate()) {
@@ -55,20 +57,36 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
           'email': email,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        _didCreateAccount = true;
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account created'),
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 5),
             backgroundColor: Colors.green,
           ),
         );
       }
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        _errorText = e.message ?? 'Account creation failed.';
-      });
+      if (e.code == 'email-already-in-use') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('account has already been created'),
+              duration: Duration(seconds: 5),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _errorText = null;
+        });
+      } else {
+        setState(() {
+          _errorText = e.message ?? 'Account creation failed.';
+        });
+      }
     } catch (_) {
       setState(() {
         _errorText = 'Something went wrong. Please try again.';
@@ -76,6 +94,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     } finally {
       if (mounted) {
         setState(() {
+          if (_didCreateAccount) {
+            _errorText = null;
+          }
           _isLoading = false;
         });
       }
@@ -87,6 +108,14 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
+      appBar: AppBar(
+        leadingWidth: 96,
+        leading: TextButton.icon(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back),
+          label: const Text('Back'),
+        ),
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

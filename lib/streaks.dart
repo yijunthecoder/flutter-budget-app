@@ -36,6 +36,13 @@ class _StreaksPageState extends State<StreaksPage> {
     });
   }
 
+  int _fireCountForStreak(int streak) {
+    if (streak >= 30) return 3;
+    if (streak >= 14) return 2;
+    if (streak >= 7) return 1;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cardGradient = LinearGradient(
@@ -61,13 +68,23 @@ class _StreaksPageState extends State<StreaksPage> {
             ),
             child: Column(
               children: [
-                Text(
-                  '$_streak',
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$_streak',
+                      style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      List.filled(_fireCountForStreak(_streak), '🔥').join(' '),
+                      style: const TextStyle(fontSize: 22),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -96,10 +113,17 @@ class _StreaksPageState extends State<StreaksPage> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _last30.map(_DayTick.new).toList(),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              childAspectRatio: 20 / 30,
+            ),
+            itemCount: _last30.length,
+            itemBuilder: (context, index) => _DayTick(_last30[index]),
           ),
           const SizedBox(height: 24),
           Row(
@@ -169,8 +193,8 @@ class _DayTick extends StatelessWidget {
             : const Color(0xFFCB6659);
 
     return Container(
-      width: 22,
-      height: 34,
+      width: 20,
+      height: 30,
       decoration: BoxDecoration(
         color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(10),

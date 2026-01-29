@@ -45,7 +45,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _formatCurrency(double value) {
-    return '\$${value.toStringAsFixed(2)}';
+    final fixed = value.toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final withCommas = parts[0]
+        .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => ',');
+    return '\$${withCommas}.${parts[1]}';
   }
 
   String _budgetImageAsset(double ratio) {
@@ -61,6 +65,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     const borderRadius = BorderRadius.all(Radius.circular(12));
+    const baseBalance = 2500.0;
     final collection = _collectionForUser();
 
     if (collection == null) {
@@ -142,6 +147,7 @@ class _HomePageState extends State<HomePage> {
             totalsThisWeek.values.fold<double>(0, (sum, v) => sum + v);
         final maxWeekly = weeklyTotals.fold<double>(0, (a, b) => a > b ? a : b);
         final yInterval = maxWeekly <= 0 ? 1.0 : (maxWeekly / 4).ceilToDouble();
+        final remainingBalance = baseBalance - totalSpentThisWeek;
 
         final budgetRatio = kDefaultMonthlyBudget <= 0
             ? 0.0
@@ -172,10 +178,10 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: _StatCard(
                               title: 'Total balance:',
-                              value: r'$2,450.00',
+                              value: _formatCurrency(remainingBalance),
                             ),
                           ),
                           const SizedBox(width: 12),

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class StreaksPage extends StatefulWidget {
@@ -10,10 +12,70 @@ class StreaksPage extends StatefulWidget {
 class _StreaksPageState extends State<StreaksPage> {
   int _streak = 0;
   int _best = 0;
-  final List<_DayEntry> _last30 = List.generate(
-    30,
-    (index) => _DayEntry(date: DateTime.now().subtract(Duration(days: 29 - index))),
-  );
+  late List<_DayEntry> _last30;
+
+  @override
+  void initState() {
+    super.initState();
+    _last30 = _buildDefaultLast30();
+    _loadStreaks();
+  }
+
+  List<_DayEntry> _buildDefaultLast30() {
+    return List.generate(
+      30,
+      (index) =>
+          _DayEntry(date: DateTime.now().subtract(Duration(days: 29 - index))),
+    );
+  }
+
+  DocumentReference<Map<String, dynamic>>? _docForUser() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('streaks')
+        .doc('summary');
+  }
+
+  Future<void> _loadStreaks() async {
+    final doc = _docForUser();
+    if (doc == null) return;
+    final snap = await doc.get();
+    final data = snap.data();
+    if (data == null) return;
+
+    final loadedStreak = (data['streak'] as num?)?.toInt();
+    final loadedBest = (data['best'] as num?)?.toInt();
+    final rawLast30 = data['last30'];
+
+    final parsed = <_DayEntry>[];
+    if (rawLast30 is List) {
+      for (final item in rawLast30) {
+        if (item is Map) {
+          final ts = item['date'];
+          if (ts is Timestamp) {
+            final under = item['underBudget'];
+            parsed.add(
+              _DayEntry(
+                date: ts.toDate(),
+                underBudget: under is bool ? under : null,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    setState(() {
+      if (loadedStreak != null) _streak = loadedStreak;
+      if (loadedBest != null) _best = loadedBest;
+      if (parsed.length == 30) {
+        _last30 = parsed;
+      }
+    });
+  }
 
   void _logDay({required bool underBudget}) {
     setState(() {
@@ -34,6 +96,36 @@ class _StreaksPageState extends State<StreaksPage> {
         ),
       );
     });
+
+    _saveStreaks();
+  }
+
+  Future<void> _saveStreaks() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final doc = _docForUser();
+    if (user == null || doc == null) return;
+    final payload = {
+      'streak': _streak,
+      'best': _best,
+      'last30': _last30
+          .map(
+            (entry) => {
+              'date': Timestamp.fromDate(entry.date),
+              'underBudget': entry.underBudget,
+            },
+          )
+          .toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    await doc.set(payload, SetOptions(merge: true));
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+      {
+        'streakDays': _streak,
+        'bestStreakDays': _best,
+        'streakUpdatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   int _fireCountForStreak(int streak) {
@@ -81,7 +173,10 @@ class _StreaksPageState extends State<StreaksPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      List.filled(_fireCountForStreak(_streak), '🔥').join(' '),
+                      List.filled(
+                        _fireCountForStreak(_streak),
+                        '\u{1F525}',
+                      ).join(' '),
                       style: const TextStyle(fontSize: 22),
                     ),
                   ],

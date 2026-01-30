@@ -45,6 +45,41 @@ class _TransactionsPageState extends State<TransactionsPage> {
         .collection('transactions');
   }
 
+  Future<void> _maybeShowBudgetWarning(BuildContext context, User user) async {
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final rawBudget = userDoc.data()?['monthly budget'];
+    final monthlyBudget = rawBudget is num
+        ? rawBudget.toDouble()
+        : double.tryParse(rawBudget?.toString() ?? '') ?? 1500.0;
+    if (monthlyBudget <= 0) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final monthEnd = DateTime(now.year, now.month + 1);
+    final snapshot = await _collection!
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
+        .where('date', isLessThan: Timestamp.fromDate(monthEnd))
+        .get();
+    final totalSpent = snapshot.docs.fold<double>(0, (sum, doc) {
+      final amount = (doc.data()['amount'] as num?)?.toDouble() ?? 0.0;
+      return sum + amount;
+    });
+
+    if (totalSpent >= monthlyBudget * 0.8 && totalSpent < monthlyBudget) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You have reached 80% of your monthly budget.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _addTransaction(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -202,6 +237,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ),
         );
       }
+      await _maybeShowBudgetWarning(context, user);
     } catch (e) {
       final errorText = e.toString();
       debugPrint('Transaction add error: $errorText');

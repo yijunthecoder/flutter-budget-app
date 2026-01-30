@@ -21,6 +21,37 @@ class _BudgetPageState extends State<BudgetPage> {
 
   int _monthlyBudget = kDefaultMonthlyBudget;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadMonthlyBudget();
+  }
+
+  Future<void> _loadMonthlyBudget() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final raw = doc.data()?['monthly budget'];
+    final value = raw is num ? raw.toInt() : int.tryParse(raw?.toString() ?? '');
+    if (value != null && value > 0 && mounted) {
+      setState(() {
+        _monthlyBudget = value;
+      });
+    }
+  }
+
+  Future<void> _saveMonthlyBudget(int value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+      {'monthly budget': value},
+      SetOptions(merge: true),
+    );
+  }
+
   Future<void> _addCategory() async {
     final result = await _showCategoryDialog();
     if (result == null) {
@@ -90,6 +121,7 @@ class _BudgetPageState extends State<BudgetPage> {
     setState(() {
       _monthlyBudget = updated;
     });
+    await _saveMonthlyBudget(updated);
   }
 
   Future<_CategoryEditResult?> _showCategoryDialog({

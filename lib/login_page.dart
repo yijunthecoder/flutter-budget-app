@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:spendly/create_account.dart';
@@ -41,10 +42,26 @@ class _LoginPageState extends State<LoginPage> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      final user = cred.user;
+      if (user != null) {
+        final existingName = user.displayName?.trim();
+        if (existingName == null || existingName.isEmpty) {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          final rawName = doc.data()?['name'] as String?;
+          final name = rawName?.trim();
+          if (name != null && name.isNotEmpty) {
+            await user.updateDisplayName(name);
+            await user.reload();
+          }
+        }
+      }
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/main');
       }

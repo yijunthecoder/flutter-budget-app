@@ -38,6 +38,12 @@ class _HomePageState extends State<HomePage> {
         .collection('transactions');
   }
 
+  DocumentReference<Map<String, dynamic>>? _userDocForUser() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return FirebaseFirestore.instance.collection('users').doc(user.uid);
+  }
+
   DateTime _startOfWeekMonday(DateTime date) {
     final dayStart = DateTime(date.year, date.month, date.day);
     final weekday = dayStart.weekday; // 1 = Monday
@@ -67,6 +73,7 @@ class _HomePageState extends State<HomePage> {
     const borderRadius = BorderRadius.all(Radius.circular(12));
     const baseBalance = 2500.0;
     final collection = _collectionForUser();
+    final userDoc = _userDocForUser();
 
     if (collection == null) {
       return const Center(
@@ -159,6 +166,35 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (userDoc != null)
+                  StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: userDoc.snapshots(),
+                    builder: (context, userSnapshot) {
+                      final authUser = FirebaseAuth.instance.currentUser;
+                      final authName = authUser?.displayName?.trim();
+                      final email = authUser?.email?.trim();
+                      final data = userSnapshot.data?.data();
+                      final rawName = data?['name'] as String?;
+                      final docName = rawName?.trim();
+                      final displayName = (authName != null && authName.isNotEmpty)
+                          ? authName
+                          : (docName != null && docName.isNotEmpty)
+                              ? docName
+                              : (email != null && email.isNotEmpty)
+                                  ? email
+                                  : 'there';
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Hi, $displayName',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(16),

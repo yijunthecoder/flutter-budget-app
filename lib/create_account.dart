@@ -52,6 +52,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
       final user = cred.user;
       if (user != null) {
+        await user.updateDisplayName(_nameController.text.trim());
+        await user.reload();
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'name': _nameController.text.trim(),
           'email': email,
@@ -126,6 +128,15 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const Text(
+                    'Sign up',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,

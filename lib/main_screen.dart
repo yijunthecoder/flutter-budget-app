@@ -23,14 +23,6 @@ class _MainScreenState extends State<MainScreen> {
     StreaksPage(),
   ];
 
-  static const List<String> _titles = [
-    'Budget tracker',
-    'Transactions',
-    'Budget',
-    'Achievements',
-    'Streaks',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +30,7 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         centerTitle: true,
-        title: Text(_titles[_currentIndex]),
+        title: const Text('Spendly'),
       ),
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(

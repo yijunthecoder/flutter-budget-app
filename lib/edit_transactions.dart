@@ -171,7 +171,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transaction Details'),
+        title: const Text('Spendly'),
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(

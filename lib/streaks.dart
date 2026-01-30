@@ -34,9 +34,7 @@ class _StreaksPageState extends State<StreaksPage> {
     if (user == null) return null;
     return FirebaseFirestore.instance
         .collection('users')
-        .doc(user.uid)
-        .collection('streaks')
-        .doc('summary');
+        .doc(user.uid);
   }
 
   Future<void> _loadStreaks() async {

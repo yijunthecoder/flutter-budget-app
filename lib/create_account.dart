@@ -117,6 +117,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
           icon: const Icon(Icons.arrow_back),
           label: const Text('Back'),
         ),
+        centerTitle: true,
+        title: const Text('Spendly'),
       ),
       body: Center(
         child: SingleChildScrollView(
